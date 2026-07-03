@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>贵州茅台（600519.SH）量化交易数据引擎看板</title>
+  <style>
+    :root {
+      --ink: #18212f; --muted: #5f6877; --line: #d9dee8; --panel: #fff;
+      --page: #f4f7fb; --ok: #0f7a3b; --ok-soft: #e9f8ef; --warn: #8a5a00;
+      --warn-soft: #fff6dd;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; color: var(--ink); background: var(--page);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.6;
+    }
+    .wrap { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 36px; }
+    header {
+      padding: 24px; color: #fff;
+      background: linear-gradient(135deg, #7f1d1d 0%, #b42318 54%, #d97706 100%);
+      border-radius: 8px; box-shadow: 0 12px 28px rgba(80, 44, 37, .18);
+    }
+    h1 { margin: 0; font-size: clamp(24px, 4vw, 38px); line-height: 1.22; letter-spacing: 0; }
+    header p { margin: 10px 0 0; color: rgba(255,255,255,.86); font-size: 15px; }
+    section {
+      margin-top: 18px; padding: 22px; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 8px; box-shadow: 0 8px 20px rgba(25, 33, 47, .05);
+    }
+    h2 { margin: 0 0 14px; font-size: 20px; line-height: 1.3; letter-spacing: 0; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .metric { min-height: 92px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcff; }
+    .label, .info span { color: var(--muted); font-size: 13px; }
+    .value { margin-top: 8px; font-size: 24px; font-weight: 720; line-height: 1.2; overflow-wrap: anywhere; }
+    .note { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .info { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--line); }
+    .info div { padding: 14px; background: #fff; }
+    .info span, .info strong { display: block; }
+    .info strong { margin-top: 5px; font-size: 16px; }
+    .chart-frame { padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .chart-frame img { display: block; width: 100%; height: auto; border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+    th { color: #3a4454; background: #f7f9fc; font-weight: 700; }
+    tr:last-child td { border-bottom: 0; }
+    .status { display: inline-flex; min-width: 58px; justify-content: center; padding: 3px 9px; border-radius: 999px; color: var(--ok); background: var(--ok-soft); font-weight: 700; font-size: 13px; }
+    .analysis { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; }
+    .analysis p { margin: 0; }
+    .notice { padding: 14px; border: 1px solid #f2cf8b; border-radius: 8px; color: var(--warn); background: var(--warn-soft); font-weight: 700; }
+    footer { margin-top: 18px; color: var(--muted); font-size: 13px; text-align: center; }
+    @media (max-width: 860px) { .grid, .info, .analysis { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 560px) {
+      .wrap { width: min(100% - 20px, 1120px); padding-top: 12px; }
+      header, section { padding: 16px; }
+      .grid, .info, .analysis { grid-template-columns: 1fr; }
+      table { font-size: 13px; }
+      th, td { padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <h1>贵州茅台（600519.SH）量化交易数据引擎看板</h1>
+      <p>基于过去一年日行情数据生成，用于展示数据获取、清洗、检查和可视化结果。</p>
+    </header>
+    <section>
+      <h2>股票基本信息</h2>
+      <div class="info">
+        <div><span>股票名称</span><strong>贵州茅台</strong></div>
+        <div><span>股票代码</span><strong>600519.SH</strong></div>
+        <div><span>市场</span><strong>上海证券交易所 A 股主板</strong></div>
+        <div><span>数据时间范围</span><strong>2025-07-03 至 2026-07-03</strong></div>
+      </div>
+    </section>
+    <section>
+      <h2>数据概览</h2>
+      <div class="grid">
+        <div class="metric"><div class="label">总交易日数量</div><div class="value">243</div><div class="note">日行情记录</div></div>
+        <div class="metric"><div class="label">起始日期</div><div class="value">2025-07-03</div><div class="note">样本第一日</div></div>
+        <div class="metric"><div class="label">结束日期</div><div class="value">2026-07-03</div><div class="note">样本最后一日</div></div>
+        <div class="metric"><div class="label">最高收盘价</div><div class="value">1555.00</div><div class="note">2026-02-05</div></div>
+        <div class="metric"><div class="label">最低收盘价</div><div class="value">1168.63</div><div class="note">2026-06-26</div></div>
+        <div class="metric"><div class="label">平均收盘价</div><div class="value">1411.02</div><div class="note">按 243 个交易日计算</div></div>
+        <div class="metric"><div class="label">区间首日收盘价</div><div class="value">1415.60</div><div class="note">2025-07-03</div></div>
+        <div class="metric"><div class="label">区间末日收盘价</div><div class="value">1194.45</div><div class="note">区间变化 -15.62%</div></div>
+      </div>
+    </section>
+    <section>
+      <h2>收盘价走势图</h2>
+      <div class="chart-frame"><img src="close_price_curve.png" alt="贵州茅台 600519.SH 过去一年每日收盘价走势"></div>
+    </section>
+    <section>
+      <h2>数据质量检查表</h2>
+      <table>
+        <thead><tr><th>检查项目</th><th>结果</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>数据行数是否合理</td><td><span class="status">通过</span></td><td>243 行；行数大于 150，覆盖过去一年主要交易日，后续仍需结合停牌和节假日核查。</td></tr>
+          <tr><td>是否存在缺失值</td><td><span class="status">通过</span></td><td>缺失值总数 0；若出现缺失，应追溯字段来源和接口返回，不应直接删除。</td></tr>
+          <tr><td>是否存在重复交易日期</td><td><span class="status">通过</span></td><td>重复日期 0 个；重复日期可能来自重复抓取或合并错误，应先定位来源。</td></tr>
+          <tr><td>日期是否按升序排列</td><td><span class="status">通过</span></td><td>已按交易日期升序排列；升序排列便于绘图、计算收益率和后续回测。</td></tr>
+          <tr><td>OHLC 是否存在非正数</td><td><span class="status">通过</span></td><td>非正价格 0 个；股票价格非正通常不合常识，若出现应核查复权、接口或数据类型。</td></tr>
+          <tr><td>成交量和成交额是否存在负数</td><td><span class="status">通过</span></td><td>负数 0 个；负成交量或负成交额通常表示数据错误，应回查原始数据。</td></tr>
+          <tr><td>OHLC 逻辑是否合理</td><td><span class="status">通过</span></td><td>异常记录 0 行；异常是调查线索，不等于垃圾；应对照交易所或数据商记录核查。</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <section>
+      <h2>简短中文分析</h2>
+      <div class="analysis">
+        <div><p>从过去一年收盘价走势看，贵州茅台在样本期内最高收盘价为 1555.00 元（2026-02-05），最低收盘价为 1168.63 元（2026-06-26）。样本期首日收盘价为 1415.60 元，末日收盘价为 1194.45 元，区间变化约为 -15.62%。这说明在本次样本范围内，价格中枢有所变化，但单个股票一年的行情不能单独作为交易决策依据，还需要结合市场环境、基本面变化、交易成本和风险控制规则。</p></div>
+        <div class="notice">本看板仅用于课程学习和数据分析，不构成投资建议。</div>
+      </div>
+    </section>
+    <footer>数据文件：600519_SH_daily_data.csv ｜ 图表文件：close_price_curve.png ｜ 看板文件：600519_SH_dashboard.html</footer>
+  </main>
+</body>
+</html>
