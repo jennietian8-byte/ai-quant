@@ -18,6 +18,13 @@ export TUSHARE_TOKEN="YOUR_TUSHARE_TOKEN"
 python3 task4_turtle_strategy.py
 ```
 
+启动互动 Playground：
+
+```bash
+pip install -r requirements-dashboard.txt
+streamlit run dashboard/app.py
+```
+
 ## 主要参数
 
 - `entry_window = 20`
@@ -33,7 +40,11 @@ python3 task4_turtle_strategy.py
 - `outputs/metrics.csv`：主策略绩效指标
 - `outputs/trades.csv`：交易记录
 - `outputs/parameter_comparison.csv`：参数对比实验
+- `outputs/multi_stock_metrics.csv`：多标的回测指标
+- `outputs/parameter_sensitivity.csv`：参数热力图扫描结果
 - `outputs/figures/`：可视化图表
+- `dashboard/app.py`：互动式海龟策略 Playground
+- `requirements-dashboard.txt`：Playground 依赖
 - `task4_turtle_strategy.ipynb`：Notebook 入口
 
 ## 主策略结果摘要

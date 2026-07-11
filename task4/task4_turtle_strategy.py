@@ -44,6 +44,7 @@ SOURCE_DATA_DIR = PROJECT_DIR / "TASK3" / "data"
 DATA_DIR = BASE_DIR / "data"
 OUTPUT_DIR = BASE_DIR / "outputs"
 FIG_DIR = OUTPUT_DIR / "figures"
+DASHBOARD_DIR = BASE_DIR / "dashboard"
 
 README_PATH = BASE_DIR / "README.md"
 NB_PATH = BASE_DIR / "task4_turtle_strategy.ipynb"
@@ -51,6 +52,8 @@ PDF_PATH = OUTPUT_DIR / "jane+TASK4.pdf"
 METRICS_PATH = OUTPUT_DIR / "metrics.csv"
 TRADES_PATH = OUTPUT_DIR / "trades.csv"
 PARAM_PATH = OUTPUT_DIR / "parameter_comparison.csv"
+MULTI_STOCK_PATH = OUTPUT_DIR / "multi_stock_metrics.csv"
+SENSITIVITY_PATH = OUTPUT_DIR / "parameter_sensitivity.csv"
 
 INITIAL_CASH = 100000.0
 RISK_PER_UNIT = 0.01
@@ -109,7 +112,7 @@ def register_pdf_font() -> str:
 
 
 def ensure_dirs() -> None:
-    for folder in [DATA_DIR, OUTPUT_DIR, FIG_DIR]:
+    for folder in [DATA_DIR, OUTPUT_DIR, FIG_DIR, DASHBOARD_DIR]:
         folder.mkdir(parents=True, exist_ok=True)
 
 
@@ -303,15 +306,24 @@ def calculate_metrics(equity: pd.DataFrame, trades: pd.DataFrame, initial_cash: 
     completed = 0
     if not trades.empty:
         cost = 0.0
+        entry_date = None
+        holding_days: list[int] = []
         for _, row in trades.iterrows():
             if row["action"] in ("BUY", "ADD"):
                 cost += float(row["price"]) * float(row["shares"])
+                if entry_date is None:
+                    entry_date = pd.to_datetime(row["trade_date"])
             elif row["action"] == "SELL":
                 completed += 1
                 proceeds = float(row["price"]) * float(row["shares"])
                 if proceeds > cost:
                     wins += 1
+                if entry_date is not None:
+                    holding_days.append(int((pd.to_datetime(row["trade_date"]) - entry_date).days))
                 cost = 0.0
+                entry_date = None
+    else:
+        holding_days = []
     benchmark_return = float(equity["close"].iloc[-1] / equity["close"].iloc[0] - 1)
     return {
         "final_asset": float(equity["total_asset"].iloc[-1]),
@@ -326,6 +338,7 @@ def calculate_metrics(equity: pd.DataFrame, trades: pd.DataFrame, initial_cash: 
         "benchmark_return": benchmark_return,
         "excess_return": cumulative_return - benchmark_return,
         "sell_count": int(len(sell_trades)),
+        "avg_holding_days": float(np.mean(holding_days)) if holding_days else 0.0,
     }
 
 
@@ -337,7 +350,15 @@ def money(x: float) -> str:
     return f"{x:,.2f}"
 
 
-def make_figures(main_df: pd.DataFrame, work: pd.DataFrame, equity: pd.DataFrame, trades: pd.DataFrame, param_metrics: pd.DataFrame) -> dict[str, Path]:
+def make_figures(
+    main_df: pd.DataFrame,
+    work: pd.DataFrame,
+    equity: pd.DataFrame,
+    trades: pd.DataFrame,
+    param_metrics: pd.DataFrame,
+    multi_stock_metrics: pd.DataFrame,
+    sensitivity: pd.DataFrame,
+) -> dict[str, Path]:
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     figs = {
         "price_channel": FIG_DIR / "figure1_price_donchian_signals.png",
@@ -345,6 +366,8 @@ def make_figures(main_df: pd.DataFrame, work: pd.DataFrame, equity: pd.DataFrame
         "equity": FIG_DIR / "figure3_strategy_equity.png",
         "drawdown": FIG_DIR / "figure4_drawdown_curve.png",
         "params": FIG_DIR / "figure5_parameter_comparison.png",
+        "multi_stock": FIG_DIR / "figure6_multi_stock_metrics.png",
+        "heatmap": FIG_DIR / "figure7_parameter_heatmap.png",
     }
 
     buy_dates = trades.loc[trades["action"].isin(["BUY", "ADD"]), "trade_date"] if not trades.empty else []
@@ -421,6 +444,41 @@ def make_figures(main_df: pd.DataFrame, work: pd.DataFrame, equity: pd.DataFrame
     plt.tight_layout()
     plt.savefig(figs["params"], dpi=180)
     plt.close()
+
+    plot_items = [
+        ("annual_return", "年化收益率", "#e34a6f"),
+        ("sharpe_ratio", "夏普比率", "#4f8fc0"),
+        ("max_drawdown", "最大回撤", "#b00020"),
+        ("avg_holding_days", "平均持有天数", "#8e24aa"),
+    ]
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    for ax, (col, title, color) in zip(axes.ravel(), plot_items):
+        ax.bar(multi_stock_metrics["stock"], multi_stock_metrics[col], color=color, alpha=0.9)
+        ax.axhline(0, color="#666666", linewidth=0.8)
+        ax.set_title(title)
+        ax.tick_params(axis="x", rotation=25)
+        ax.grid(axis="y", alpha=0.22)
+    fig.suptitle("图6 三只股票海龟策略核心指标对比", fontsize=14)
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.savefig(figs["multi_stock"], dpi=180)
+    plt.close(fig)
+
+    pivot = sensitivity.pivot(index="entry_window", columns="exit_window", values="sharpe_ratio")
+    plt.figure(figsize=(9.2, 6.6))
+    im = plt.imshow(pivot, cmap="RdYlGn", aspect="auto")
+    plt.colorbar(im, label="Sharpe Ratio")
+    plt.xticks(np.arange(len(pivot.columns)), pivot.columns)
+    plt.yticks(np.arange(len(pivot.index)), pivot.index)
+    plt.xlabel("退出通道周期 M")
+    plt.ylabel("入场通道周期 N")
+    plt.title("图7 参数热力图：夏普比率（ATR=20）")
+    for i in range(len(pivot.index)):
+        for j in range(len(pivot.columns)):
+            value = pivot.iloc[i, j]
+            plt.text(j, i, f"{value:.3f}", ha="center", va="center", color="#333333", fontsize=10)
+    plt.tight_layout()
+    plt.savefig(figs["heatmap"], dpi=180)
+    plt.close()
     return figs
 
 
@@ -432,6 +490,48 @@ def build_parameter_experiment(df: pd.DataFrame) -> pd.DataFrame:
         rows.append({"参数组合": label, **metrics})
     out = pd.DataFrame(rows)
     out.to_csv(PARAM_PATH, index=False, encoding="utf-8-sig")
+    return out
+
+
+def build_multi_stock_experiment(all_data: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    rows = []
+    for code, df in all_data.items():
+        _, _, metrics, _ = run_turtle_backtest(df, entry_window=20, exit_window=10, atr_window=20)
+        rows.append(
+            {
+                "stock": df["stock_name"].iloc[0],
+                "ts_code": code,
+                **metrics,
+            }
+        )
+    out = pd.DataFrame(rows)
+    out.to_csv(MULTI_STOCK_PATH, index=False, encoding="utf-8-sig")
+    return out
+
+
+def build_parameter_sensitivity(df: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for entry_window in [10, 20, 30, 40, 55]:
+        for exit_window in [5, 10, 20, 30]:
+            _, _, metrics, _ = run_turtle_backtest(
+                df,
+                entry_window=entry_window,
+                exit_window=exit_window,
+                atr_window=20,
+            )
+            rows.append(
+                {
+                    "entry_window": entry_window,
+                    "exit_window": exit_window,
+                    "atr_window": 20,
+                    "cumulative_return": metrics["cumulative_return"],
+                    "max_drawdown": metrics["max_drawdown"],
+                    "sharpe_ratio": metrics["sharpe_ratio"],
+                    "trade_count": metrics["trade_count"],
+                }
+            )
+    out = pd.DataFrame(rows)
+    out.to_csv(SENSITIVITY_PATH, index=False, encoding="utf-8-sig")
     return out
 
 
@@ -466,6 +566,7 @@ def make_pdf(
     metrics: dict[str, float | int | str],
     trades: pd.DataFrame,
     param_metrics: pd.DataFrame,
+    multi_stock_metrics: pd.DataFrame,
     figs: dict[str, Path],
 ) -> None:
     styles = getSampleStyleSheet()
@@ -593,6 +694,22 @@ stop_price = entry_price - 2 * atr_at_entry
     story.append(style_table(Table(param_table, colWidths=[4.5 * cm, 3 * cm, 3 * cm, 3 * cm, 2.5 * cm])))
     story.append(Spacer(1, 0.18 * cm))
     add_image(figs["params"], "图5 不同通道与 ATR 参数下的绩效对比。20 日突破更敏感，55 日突破更稳健但交易机会较少；离场窗口和 ATR 窗口会影响退出速度与仓位大小。")
+    add_image(figs["multi_stock"], "图6 三只股票海龟策略核心指标对比。该图复刻课堂中多标的柱状指标页，用年化收益、夏普比率、最大回撤和平均持有天数观察不同标的的适配程度。")
+    heat_table = [["股票", "年化收益", "夏普比率", "最大回撤", "交易次数"]]
+    for _, row in multi_stock_metrics.iterrows():
+        heat_table.append(
+            [
+                str(row["stock"]),
+                pct(float(row["annual_return"])),
+                f"{float(row['sharpe_ratio']):.2f}",
+                pct(float(row["max_drawdown"])),
+                str(int(row["trade_count"])),
+            ]
+        )
+    story.append(style_table(Table(heat_table, colWidths=[4 * cm, 3 * cm, 3 * cm, 3 * cm, 2.5 * cm])))
+    story.append(Spacer(1, 0.18 * cm))
+    add_image(figs["heatmap"], "图7 参数热力图。颜色越偏绿色，说明该入场/退出周期组合的夏普比率越高；颜色偏红则表示风险调整后收益较差。")
+    p("除静态图表外，本目录还提供 Streamlit Playground。运行后可在左侧修改标的、回测窗口、入场周期、退出周期、ATR 周期和最大单位数，右侧实时更新绩效指标、净值曲线、信号图和交易记录。")
 
     section("九、适用场景、局限性与心得")
     p("海龟策略更适合趋势明确、波动延续性较强的市场。在单边上涨或下跌阶段，它可以通过突破入场和金字塔加仓扩大盈利；在横盘震荡中，则容易被假突破反复消耗。")
@@ -612,6 +729,95 @@ def make_notebook() -> None:
         nbf.v4.new_markdown_cell("运行后查看 `outputs/` 目录中的 PDF、交易记录、绩效指标和图表。"),
     ]
     NB_PATH.write_text(nbf.writes(nb), encoding="utf-8")
+
+
+def make_dashboard_app() -> None:
+    app_path = DASHBOARD_DIR / "app.py"
+    app_path.write_text(
+        '''#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Streamlit playground for TASK4 turtle strategy."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from task4_turtle_strategy import INITIAL_CASH, load_all_data, run_turtle_backtest
+
+
+st.set_page_config(page_title="海龟法则 Playground", layout="wide")
+st.title("海龟法则 Playground")
+
+all_data = load_all_data()
+code_to_name = {code: df["stock_name"].iloc[0] for code, df in all_data.items()}
+
+with st.sidebar:
+    st.header("参数")
+    code = st.selectbox("标的", list(all_data.keys()), format_func=lambda value: f"{code_to_name[value]} ({value})")
+    entry_window = st.slider("入场突破周期 N", 10, 60, 20, step=5)
+    exit_window = st.slider("退出通道周期 M", 5, 30, 10, step=5)
+    atr_window = st.slider("ATR 周期", 10, 30, 20, step=2)
+    risk_per_unit = st.slider("单单位风险", 0.005, 0.03, 0.01, step=0.005, format="%.3f")
+    max_units = st.slider("最大单位数", 1, 4, 4)
+
+df = all_data[code]
+work, equity, metrics, trades = run_turtle_backtest(
+    df,
+    entry_window=entry_window,
+    exit_window=exit_window,
+    atr_window=atr_window,
+    risk_per_unit=risk_per_unit,
+    max_units=max_units,
+)
+
+kpis = st.columns(6)
+kpis[0].metric("年化收益", f"{metrics['annual_return']:.2%}")
+kpis[1].metric("夏普比率", f"{metrics['sharpe_ratio']:.2f}")
+kpis[2].metric("最大回撤", f"{metrics['max_drawdown']:.2%}")
+kpis[3].metric("胜率", f"{metrics['win_rate']:.2%}")
+kpis[4].metric("交易笔数", f"{int(metrics['trade_count'])}")
+kpis[5].metric("止损/卖出", f"{int(metrics['sell_count'])}")
+
+tab_equity, tab_signal, tab_trades = st.tabs(["净值曲线", "交易信号", "交易记录"])
+
+with tab_equity:
+    nav = equity["total_asset"] / INITIAL_CASH
+    benchmark = df["close"] / df["close"].iloc[0]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=equity["trade_date"], y=nav, name="海龟策略"))
+    fig.add_trace(go.Scatter(x=df["trade_date"], y=benchmark, name="买入持有", line=dict(dash="dot")))
+    fig.update_layout(template="plotly_dark", height=520, yaxis_title="净值", margin=dict(l=20, r=20, t=35, b=20))
+    st.plotly_chart(fig, use_container_width=True)
+
+with tab_signal:
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=work["trade_date"], y=work["close"], name="收盘价", line=dict(color="#d8dee9")))
+    fig.add_trace(go.Scatter(x=work["trade_date"], y=work["donchian_high"], name="入场上轨", line=dict(color="#ff6b6b")))
+    fig.add_trace(go.Scatter(x=work["trade_date"], y=work["donchian_low"], name="退出下轨", line=dict(color="#51cf66")))
+    if not trades.empty:
+        buy_dates = trades.loc[trades["action"].isin(["BUY", "ADD"]), "trade_date"]
+        sell_dates = trades.loc[trades["action"] == "SELL", "trade_date"]
+        buys = work[work["trade_date"].isin(pd.to_datetime(buy_dates))]
+        sells = work[work["trade_date"].isin(pd.to_datetime(sell_dates))]
+        fig.add_trace(go.Scatter(x=buys["trade_date"], y=buys["close"], name="入场/加仓", mode="markers", marker=dict(symbol="triangle-up", size=11, color="#ff3366")))
+        fig.add_trace(go.Scatter(x=sells["trade_date"], y=sells["close"], name="离场", mode="markers", marker=dict(symbol="triangle-down", size=11, color="#20c997")))
+    fig.update_layout(template="plotly_dark", height=560, yaxis_title="价格", margin=dict(l=20, r=20, t=35, b=20))
+    st.plotly_chart(fig, use_container_width=True)
+
+with tab_trades:
+    st.dataframe(trades, use_container_width=True)
+''',
+        encoding="utf-8",
+    )
 
 
 def make_readme(metrics: dict[str, float | int | str]) -> None:
@@ -636,6 +842,13 @@ export TUSHARE_TOKEN="YOUR_TUSHARE_TOKEN"
 python3 task4_turtle_strategy.py
 ```
 
+启动互动 Playground：
+
+```bash
+pip install -r requirements-dashboard.txt
+streamlit run dashboard/app.py
+```
+
 ## 主要参数
 
 - `entry_window = 20`
@@ -651,7 +864,11 @@ python3 task4_turtle_strategy.py
 - `outputs/metrics.csv`：主策略绩效指标
 - `outputs/trades.csv`：交易记录
 - `outputs/parameter_comparison.csv`：参数对比实验
+- `outputs/multi_stock_metrics.csv`：多标的回测指标
+- `outputs/parameter_sensitivity.csv`：参数热力图扫描结果
 - `outputs/figures/`：可视化图表
+- `dashboard/app.py`：互动式海龟策略 Playground
+- `requirements-dashboard.txt`：Playground 依赖
 - `task4_turtle_strategy.ipynb`：Notebook 入口
 
 ## 主策略结果摘要
@@ -674,7 +891,9 @@ def main() -> None:
     main_df = all_data[MAIN_CODE]
     work, equity, metrics, trades = run_turtle_backtest(main_df, **MAIN_PARAMS)
     param_metrics = build_parameter_experiment(main_df)
-    figs = make_figures(main_df, work, equity, trades, param_metrics)
+    multi_stock_metrics = build_multi_stock_experiment(all_data)
+    sensitivity = build_parameter_sensitivity(main_df)
+    figs = make_figures(main_df, work, equity, trades, param_metrics, multi_stock_metrics, sensitivity)
 
     metrics_df = pd.DataFrame([{**{"stock": MAIN_NAME, "ts_code": MAIN_CODE}, **metrics}])
     metrics_df.to_csv(METRICS_PATH, index=False, encoding="utf-8-sig")
@@ -682,8 +901,9 @@ def main() -> None:
     equity.to_csv(OUTPUT_DIR / "equity_curve.csv", index=False, encoding="utf-8-sig")
     work.to_csv(OUTPUT_DIR / "indicator_data.csv", index=False, encoding="utf-8-sig")
 
-    make_pdf(quality_checks(main_df), metrics, trades, param_metrics, figs)
+    make_pdf(quality_checks(main_df), metrics, trades, param_metrics, multi_stock_metrics, figs)
     make_notebook()
+    make_dashboard_app()
     make_readme(metrics)
 
     print(json.dumps({"pdf": str(PDF_PATH), "metrics": metrics}, ensure_ascii=False, indent=2))
