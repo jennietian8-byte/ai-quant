@@ -10,6 +10,7 @@ TASK3/
 ├── task3_ma_cross_strategy.py
 ├── task3_ma_cross_strategy.ipynb
 ├── ma_cross_dashboard.html
+├── ma_cross_dashboard.pdf
 ├── jane+TASK3.pdf
 ├── data/
 │   └── *_daily_data.csv
@@ -28,6 +29,8 @@ python3 task3_ma_cross_strategy.py
 ```
 
 生成后可直接用浏览器打开 `ma_cross_dashboard.html`，查看双均线策略回测看板。看板包含标的选择、时间窗口、短长均线参数、交易成本开关、关键指标卡、策略净值曲线、回撤曲线、价格均线买卖点图，以及多股票多参数对比图。
+
+考虑到课程后台可能不能渲染 HTML，本目录同时导出 `ma_cross_dashboard.pdf` 作为看板打印版，便于直接提交和批改。
 
 脚本默认复用本地 CSV，不需要写入真实 Tushare token。若未来需要重新获取数据，请只通过本地环境变量传入：
 

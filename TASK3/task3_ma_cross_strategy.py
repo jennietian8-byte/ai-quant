@@ -59,6 +59,7 @@ PDF_PATH = BASE_DIR / "jane+TASK3.pdf"
 README_PATH = BASE_DIR / "README.md"
 NB_PATH = BASE_DIR / "task3_ma_cross_strategy.ipynb"
 DASHBOARD_PATH = BASE_DIR / "ma_cross_dashboard.html"
+DASHBOARD_PDF_PATH = BASE_DIR / "ma_cross_dashboard.pdf"
 
 INITIAL_CAPITAL = 100000.0
 COMMISSION_RATE = 0.0003
@@ -1254,6 +1255,134 @@ def build_dashboard(data: dict[str, pd.DataFrame], metrics_df: pd.DataFrame) -> 
     DASHBOARD_PATH.write_text(html, encoding="utf-8")
 
 
+def build_dashboard_pdf(metrics_df: pd.DataFrame) -> None:
+    font_name = register_pdf_font()
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "DashboardTitle",
+        parent=styles["Title"],
+        fontName=font_name,
+        fontSize=18,
+        leading=24,
+        alignment=TA_CENTER,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+    heading_style = ParagraphStyle(
+        "DashboardHeading",
+        parent=styles["Heading2"],
+        fontName=font_name,
+        fontSize=12,
+        leading=16,
+        alignment=TA_LEFT,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+    body_style = ParagraphStyle(
+        "DashboardBody",
+        parent=styles["BodyText"],
+        fontName=font_name,
+        fontSize=9.5,
+        leading=13.5,
+        alignment=TA_JUSTIFY,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+    card_style = ParagraphStyle(
+        "DashboardCard",
+        parent=styles["BodyText"],
+        fontName=font_name,
+        fontSize=10,
+        leading=14,
+        alignment=TA_CENTER,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+    main = metrics_df[
+        (metrics_df["ts_code"] == MAIN_CODE)
+        & (metrics_df["short_window"] == MAIN_PARAMS[0])
+        & (metrics_df["long_window"] == MAIN_PARAMS[1])
+    ].iloc[0]
+
+    doc = SimpleDocTemplate(
+        str(DASHBOARD_PDF_PATH),
+        pagesize=(A4[1], A4[0]),
+        rightMargin=1.2 * cm,
+        leftMargin=1.2 * cm,
+        topMargin=1.0 * cm,
+        bottomMargin=1.0 * cm,
+        title="ma_cross_dashboard",
+        author="jane",
+    )
+    story: list = []
+    story.append(p("双均线策略回测看板（PDF 打印版）", title_style))
+    story.append(Spacer(1, 0.2 * cm))
+    story.append(
+        p(
+            "说明：课堂后台不能直接渲染 HTML，因此本文件是 ma_cross_dashboard.html 的可提交 PDF 版本。"
+            "核心交互参数为标的、时间窗口、短长均线、手续费、滑点和初始资金；本页展示默认主实验结果。",
+            body_style,
+        )
+    )
+    story.append(Spacer(1, 0.2 * cm))
+
+    cards = [
+        [
+            p(f"标的<br/><b>{main['stock_name']}（{MAIN_CODE}）</b>", card_style),
+            p(f"参数<br/><b>SMA({MAIN_PARAMS[0]},{MAIN_PARAMS[1]})</b>", card_style),
+            p(f"年化收益率<br/><b>{pct(float(main['annual_return']))}</b>", card_style),
+            p(f"夏普比率<br/><b>{float(main['sharpe']):.3f}</b>", card_style),
+            p(f"最大回撤<br/><b>{pct(float(main['max_drawdown']))}</b>", card_style),
+            p(f"胜率<br/><b>{pct(float(main['win_rate']))}</b>", card_style),
+        ]
+    ]
+    card_table = Table(cards, colWidths=[4.3 * cm] * 6)
+    card_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), font_name),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#ffffff")),
+                ("BOX", (0, 0), (-1, -1), 0.45, colors.HexColor("#d9dee8")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#e8ebf2")),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
+    story.append(card_table)
+    story.append(Spacer(1, 0.25 * cm))
+
+    story.append(p("策略净值与买入持有基准", heading_style))
+    story.append(Image(str(FIG_NAV), width=25.5 * cm, height=10.2 * cm))
+    story.append(Spacer(1, 0.15 * cm))
+    story.append(PageBreak())
+
+    story.append(p("价格、均线、买卖点与回撤", heading_style))
+    two_charts = Table(
+        [
+            [
+                Image(str(FIG_PRICE), width=12.4 * cm, height=6.6 * cm),
+                Image(str(FIG_DRAWDOWN), width=12.4 * cm, height=6.6 * cm),
+            ]
+        ],
+        colWidths=[12.8 * cm, 12.8 * cm],
+    )
+    two_charts.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(two_charts)
+    story.append(Spacer(1, 0.25 * cm))
+    story.append(p("多股票与多参数绩效对比", heading_style))
+    story.append(Image(str(FIG_COMPARE), width=25.5 * cm, height=13.0 * cm))
+
+    def footer(canvas, doc_obj):
+        canvas.saveState()
+        canvas.setFont(font_name, 8)
+        canvas.drawCentredString(A4[1] / 2, 0.55 * cm, f"第 {doc_obj.page} 页")
+        canvas.restoreState()
+
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+
+
 def build_readme(metrics_df: pd.DataFrame) -> None:
     main = metrics_df[
         (metrics_df["ts_code"] == MAIN_CODE)
@@ -1272,6 +1401,7 @@ TASK3/
 ├── task3_ma_cross_strategy.py
 ├── task3_ma_cross_strategy.ipynb
 ├── ma_cross_dashboard.html
+├── ma_cross_dashboard.pdf
 ├── jane+TASK3.pdf
 ├── data/
 │   └── *_daily_data.csv
@@ -1290,6 +1420,8 @@ python3 task3_ma_cross_strategy.py
 ```
 
 生成后可直接用浏览器打开 `ma_cross_dashboard.html`，查看双均线策略回测看板。看板包含标的选择、时间窗口、短长均线参数、交易成本开关、关键指标卡、策略净值曲线、回撤曲线、价格均线买卖点图，以及多股票多参数对比图。
+
+考虑到课程后台可能不能渲染 HTML，本目录同时导出 `ma_cross_dashboard.pdf` 作为看板打印版，便于直接提交和批改。
 
 脚本默认复用本地 CSV，不需要写入真实 Tushare token。若未来需要重新获取数据，请只通过本地环境变量传入：
 
@@ -1322,11 +1454,13 @@ def build_outputs() -> None:
     metrics_df, equity_map, trade_map = make_all_backtests(data)
     make_figures(equity_map, trade_map, metrics_df)
     build_dashboard(data, metrics_df)
+    build_dashboard_pdf(metrics_df)
     build_pdf(metrics_df, equity_map, trade_map, data)
     build_notebook()
     build_readme(metrics_df)
     print(f"PDF: {PDF_PATH.name}")
     print(f"Dashboard: {DASHBOARD_PATH.name}")
+    print(f"Dashboard PDF: {DASHBOARD_PDF_PATH.name}")
     print(f"Summary: {RESULT_DIR / 'task3_performance_summary.csv'}")
     print(metrics_df[["stock_name", "ts_code", "short_window", "long_window", "total_return", "sharpe", "max_drawdown", "excess_return"]].to_string(index=False))
 
