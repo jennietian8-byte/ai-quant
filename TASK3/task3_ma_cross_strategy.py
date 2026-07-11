@@ -15,6 +15,7 @@ TASK3 策略首秀：用均线交叉反应市场趋势变化
 from __future__ import annotations
 
 import math
+import json
 import shutil
 import textwrap
 from pathlib import Path
@@ -57,6 +58,7 @@ RESULT_DIR = BASE_DIR / "results"
 PDF_PATH = BASE_DIR / "jane+TASK3.pdf"
 README_PATH = BASE_DIR / "README.md"
 NB_PATH = BASE_DIR / "task3_ma_cross_strategy.ipynb"
+DASHBOARD_PATH = BASE_DIR / "ma_cross_dashboard.html"
 
 INITIAL_CAPITAL = 100000.0
 COMMISSION_RATE = 0.0003
@@ -854,6 +856,404 @@ def build_notebook() -> None:
         nbf.write(nb, f)
 
 
+def build_dashboard(data: dict[str, pd.DataFrame], metrics_df: pd.DataFrame) -> None:
+    stock_payload = []
+    for stock in STOCKS:
+        df = data[stock["code"]].copy()
+        stock_payload.append(
+            {
+                "name": stock["name"],
+                "code": stock["code"],
+                "rows": [
+                    {
+                        "date": row.trade_date.strftime("%Y-%m-%d"),
+                        "open": float(row.open),
+                        "high": float(row.high),
+                        "low": float(row.low),
+                        "close": float(row.close),
+                        "vol": float(row.vol),
+                    }
+                    for row in df.itertuples(index=False)
+                ],
+            }
+        )
+    compare_payload = []
+    for row in metrics_df.itertuples(index=False):
+        compare_payload.append(
+            {
+                "label": f"{row.stock_name}\\n{row.short_window}/{row.long_window}",
+                "stock": row.stock_name,
+                "code": row.ts_code,
+                "short": int(row.short_window),
+                "long": int(row.long_window),
+                "totalReturn": float(row.total_return),
+                "annualReturn": float(row.annual_return),
+                "sharpe": float(row.sharpe),
+                "maxDrawdown": float(row.max_drawdown),
+                "winRate": float(row.win_rate),
+                "tradeCount": int(row.trade_count),
+                "excessReturn": float(row.excess_return),
+            }
+        )
+    payload = {
+        "stocks": stock_payload,
+        "comparison": compare_payload,
+        "defaults": {
+            "stock": MAIN_CODE,
+            "short": MAIN_PARAMS[0],
+            "long": MAIN_PARAMS[1],
+            "initialCapital": INITIAL_CAPITAL,
+            "commissionRate": COMMISSION_RATE,
+            "slippageRate": SLIPPAGE_RATE,
+            "riskFreeRate": RISK_FREE_RATE,
+            "tradingDays": TRADING_DAYS,
+        },
+    }
+    payload_json = json.dumps(payload, ensure_ascii=False)
+    html = f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>双均线策略回测看板</title>
+  <style>
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      color: #222;
+      background: #f6f7fb;
+    }}
+    header {{
+      height: 58px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 22px;
+      background: #fff;
+      border-bottom: 1px solid #e7eaf0;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }}
+    header h1 {{ font-size: 20px; margin: 0; font-weight: 700; }}
+    header .pill {{ padding: 6px 12px; background: #eef0f4; border-radius: 999px; font-size: 13px; color: #555; }}
+    main {{ display: grid; grid-template-columns: 300px 1fr; min-height: calc(100vh - 58px); }}
+    aside {{
+      background: #fff;
+      border-right: 1px solid #e7eaf0;
+      padding: 20px 18px;
+      overflow-y: auto;
+    }}
+    section.content {{ padding: 20px; }}
+    .group {{ margin-bottom: 22px; }}
+    .group h2 {{ font-size: 15px; margin: 0 0 12px; color: #4a5568; }}
+    label {{ display: block; font-size: 13px; color: #5d6675; margin: 10px 0 6px; }}
+    select, input[type="date"], input[type="number"] {{
+      width: 100%;
+      border: 1px solid #d9dee8;
+      border-radius: 8px;
+      padding: 10px 11px;
+      font-size: 14px;
+      background: #fff;
+    }}
+    input[type="range"] {{ width: 100%; accent-color: #2f8ec4; }}
+    .range-row {{ display: grid; grid-template-columns: 1fr 34px; gap: 10px; align-items: center; }}
+    .range-value {{ color: #2f8ec4; font-weight: 700; text-align: right; }}
+    .switch-row {{ display: flex; align-items: center; justify-content: space-between; margin: 12px 0; font-size: 14px; }}
+    .switch-row input {{ width: 42px; height: 22px; accent-color: #2f8ec4; }}
+    button {{
+      width: 100%;
+      border: 1px solid #d9dee8;
+      background: #fff;
+      border-radius: 8px;
+      padding: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }}
+    .side-metrics {{ border-top: 1px solid #edf0f5; padding-top: 14px; }}
+    .side-metrics p {{ margin: 8px 0; font-size: 14px; color: #4a5568; }}
+    .side-metrics strong {{ color: #d8343f; }}
+    .cards {{ display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 14px; margin-bottom: 18px; }}
+    .card, .panel {{
+      background: #fff;
+      border: 1px solid #e8ebf2;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(20, 30, 50, 0.03);
+    }}
+    .card {{ min-height: 96px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px; }}
+    .card .label {{ font-size: 13px; color: #6b7280; }}
+    .card .value {{ font-size: 26px; font-weight: 800; margin-top: 8px; }}
+    .card .note {{ font-size: 12px; color: #7b8494; margin-top: 6px; text-align: center; }}
+    .red {{ color: #d8343f; }}
+    .green {{ color: #0c9f6e; }}
+    .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }}
+    .wide {{ grid-column: 1 / -1; }}
+    .panel {{ padding: 16px 16px 12px; min-height: 320px; }}
+    .panel h3 {{ margin: 0 0 12px; font-size: 16px; }}
+    svg {{ width: 100%; height: 280px; overflow: visible; }}
+    .wide svg {{ height: 330px; }}
+    .legend {{ display: flex; gap: 16px; justify-content: center; color: #5b6370; font-size: 13px; margin-top: -4px; }}
+    .legend span::before {{ content: ""; display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; background: var(--c); }}
+    @media (max-width: 980px) {{
+      main {{ grid-template-columns: 1fr; }}
+      aside {{ border-right: none; border-bottom: 1px solid #e7eaf0; }}
+      .cards {{ grid-template-columns: repeat(2, 1fr); }}
+      .grid {{ grid-template-columns: 1fr; }}
+    }}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎯 双均线策略回测看板</h1>
+    <span class="pill" id="paramPill">SMA(5,15)</span>
+  </header>
+  <main>
+    <aside>
+      <div class="group">
+        <h2>📌 标的选择</h2>
+        <select id="stockSelect"></select>
+        <label id="stockMeta"></label>
+      </div>
+      <div class="group">
+        <h2>📅 时间窗口</h2>
+        <label>起始日期</label>
+        <input type="date" id="startDate">
+        <label>结束日期</label>
+        <input type="date" id="endDate">
+      </div>
+      <div class="group">
+        <h2>📏 均线参数</h2>
+        <label>短周期 SMA</label>
+        <div class="range-row"><input type="range" id="shortRange" min="2" max="30" value="5"><span class="range-value" id="shortValue">5</span></div>
+        <label>长周期 SMA</label>
+        <div class="range-row"><input type="range" id="longRange" min="5" max="60" value="15"><span class="range-value" id="longValue">15</span></div>
+      </div>
+      <div class="group">
+        <h2>💸 交易成本</h2>
+        <div class="switch-row"><span>手续费</span><input type="checkbox" id="commissionToggle" checked></div>
+        <div class="switch-row"><span>滑点</span><input type="checkbox" id="slippageToggle" checked></div>
+        <label>初始资金</label>
+        <input type="number" id="capitalInput" value="100000" min="10000" step="10000">
+      </div>
+      <button id="resetBtn">🔁 重置默认参数</button>
+      <div class="side-metrics group">
+        <h2>📊 策略指标</h2>
+        <p>年化收益：<strong id="sideAnnual">-</strong></p>
+        <p>夏普比率：<strong id="sideSharpe">-</strong></p>
+        <p>最大回撤：<strong id="sideMdd">-</strong></p>
+        <p>交易次数：<strong id="sideTrades">-</strong></p>
+        <p>胜率：<strong id="sideWin">-</strong></p>
+        <p>盈亏比：<strong id="sidePl">-</strong></p>
+        <p>超额收益：<strong id="sideExcess">-</strong></p>
+      </div>
+    </aside>
+    <section class="content">
+      <div class="cards">
+        <div class="card"><div class="label">年化收益率</div><div class="value" id="annualCard">-</div><div class="note" id="returnNote">-</div></div>
+        <div class="card"><div class="label">夏普比率</div><div class="value" id="sharpeCard">-</div><div class="note" id="sharpeNote">-</div></div>
+        <div class="card"><div class="label">最大回撤</div><div class="value green" id="mddCard">-</div><div class="note" id="mddNote">-</div></div>
+        <div class="card"><div class="label">胜率</div><div class="value" id="winCard">-</div><div class="note" id="tradeNote">-</div></div>
+      </div>
+      <div class="grid">
+        <div class="panel wide">
+          <h3>策略净值 vs 买入持有基准</h3>
+          <svg id="navChart"></svg>
+          <div class="legend"><span style="--c:#d8343f">策略净值</span><span style="--c:#9aa1ad">买入持有</span></div>
+        </div>
+        <div class="panel">
+          <h3>回撤（%）</h3>
+          <svg id="drawdownChart"></svg>
+        </div>
+        <div class="panel">
+          <h3>价格 + 均线 + 买卖点</h3>
+          <svg id="priceChart"></svg>
+          <div class="legend"><span style="--c:#555">收盘价</span><span style="--c:#f2a65a">短均线</span><span style="--c:#2f8ec4">长均线</span><span style="--c:#d8343f">买入</span><span style="--c:#0c9f6e">卖出</span></div>
+        </div>
+        <div class="panel wide">
+          <h3>多股票与多参数绩效对比</h3>
+          <svg id="compareChart"></svg>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const DATA = {payload_json};
+    const els = Object.fromEntries(["stockSelect","stockMeta","startDate","endDate","shortRange","longRange","shortValue","longValue","commissionToggle","slippageToggle","capitalInput","resetBtn","paramPill","annualCard","returnNote","sharpeCard","sharpeNote","mddCard","mddNote","winCard","tradeNote","sideAnnual","sideSharpe","sideMdd","sideTrades","sideWin","sidePl","sideExcess","navChart","drawdownChart","priceChart","compareChart"].map(id => [id, document.getElementById(id)]));
+
+    function pct(v) {{ return (v * 100).toFixed(2) + "%"; }}
+    function num(v, n=3) {{ return Number.isFinite(v) ? v.toFixed(n) : "无亏损"; }}
+    function dateStr(d) {{ return d.date; }}
+    function cls(v) {{ return v >= 0 ? "red" : "green"; }}
+    function stock() {{ return DATA.stocks.find(s => s.code === els.stockSelect.value); }}
+
+    function ma(rows, window) {{
+      const out = Array(rows.length).fill(null);
+      let sum = 0;
+      for (let i = 0; i < rows.length; i++) {{
+        sum += rows[i].close;
+        if (i >= window) sum -= rows[i - window].close;
+        if (i >= window - 1) out[i] = sum / window;
+      }}
+      return out;
+    }}
+
+    function runBacktest(rows, shortW, longW, capital, useFee, useSlip) {{
+      const shortMa = ma(rows, shortW);
+      const longMa = ma(rows, longW);
+      const feeRate = useFee ? DATA.defaults.commissionRate : 0;
+      const slipRate = useSlip ? DATA.defaults.slippageRate : 0;
+      let cash = capital, shares = 0, entry = 0;
+      const equity = [], trades = [], pnls = [];
+      for (let i = 0; i < rows.length; i++) {{
+        const close = rows[i].close;
+        const golden = i > 0 && shortMa[i] != null && longMa[i] != null && shortMa[i] > longMa[i] && shortMa[i - 1] <= longMa[i - 1];
+        const death = i > 0 && shortMa[i] != null && longMa[i] != null && shortMa[i] < longMa[i] && shortMa[i - 1] >= longMa[i - 1];
+        if (shares === 0 && golden) {{
+          const price = close * (1 + slipRate);
+          const buyShares = Math.floor(cash / (price * (1 + feeRate)) / 100) * 100;
+          if (buyShares > 0) {{
+            const value = buyShares * price, fee = value * feeRate;
+            cash -= value + fee;
+            shares = buyShares;
+            entry = value + fee;
+            trades.push({{date: rows[i].date, type: "buy", close, price, shares: buyShares}});
+          }}
+        }} else if (shares > 0 && death) {{
+          const price = close * (1 - slipRate);
+          const value = shares * price, fee = value * feeRate;
+          const pnl = value - fee - entry;
+          cash += value - fee;
+          trades.push({{date: rows[i].date, type: "sell", close, price, shares, pnl}});
+          pnls.push(pnl);
+          shares = 0;
+          entry = 0;
+        }}
+        const total = cash + shares * close;
+        equity.push({{...rows[i], shortMa: shortMa[i], longMa: longMa[i], nav: total / capital, bench: close / rows[0].close, signal: golden ? 1 : death ? -1 : 0}});
+      }}
+      let peak = 1;
+      const returns = [];
+      equity.forEach((d, i) => {{
+        peak = Math.max(peak, d.nav);
+        d.drawdown = d.nav / peak - 1;
+        returns.push(i === 0 ? 0 : d.nav / equity[i - 1].nav - 1);
+      }});
+      const totalReturn = equity[equity.length - 1].nav - 1;
+      const annualReturn = Math.pow(1 + totalReturn, DATA.defaults.tradingDays / Math.max(equity.length, 1)) - 1;
+      const dailyRf = Math.pow(1 + DATA.defaults.riskFreeRate, 1 / DATA.defaults.tradingDays) - 1;
+      const mean = returns.reduce((a, b) => a + b - dailyRf, 0) / returns.length;
+      const rawMean = returns.reduce((a, b) => a + b, 0) / returns.length;
+      const sd = Math.sqrt(returns.reduce((a, b) => a + Math.pow(b - rawMean, 2), 0) / Math.max(returns.length - 1, 1));
+      const wins = pnls.filter(v => v > 0), losses = pnls.filter(v => v < 0);
+      const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+      return {{
+        equity, trades,
+        totalReturn,
+        annualReturn,
+        sharpe: sd > 0 ? mean / sd * Math.sqrt(DATA.defaults.tradingDays) : 0,
+        maxDrawdown: Math.min(...equity.map(d => d.drawdown)),
+        winRate: pnls.length ? wins.length / pnls.length : 0,
+        profitLossRatio: losses.length && wins.length ? avg(wins) / Math.abs(avg(losses)) : wins.length ? Infinity : 0,
+        benchmarkReturn: equity[equity.length - 1].bench - 1,
+      }};
+    }}
+
+    function scale(vals, a, b) {{
+      const finite = vals.filter(v => Number.isFinite(v));
+      let min = Math.min(...finite), max = Math.max(...finite);
+      if (min === max) {{ min -= 1; max += 1; }}
+      return v => a + (b - a) * (v - min) / (max - min);
+    }}
+    function line(points, x, y) {{
+      return points.map((p, i) => (i ? "L" : "M") + x(p, i).toFixed(1) + "," + y(p).toFixed(1)).join(" ");
+    }}
+    function clear(svg) {{ svg.innerHTML = ""; }}
+    function path(svg, d, color, width=2, dash="") {{
+      svg.insertAdjacentHTML("beforeend", `<path d="${{d}}" fill="none" stroke="${{color}}" stroke-width="${{width}}" stroke-dasharray="${{dash}}"/>`);
+    }}
+    function axes(svg, w, h, m) {{
+      svg.setAttribute("viewBox", `0 0 ${{w}} ${{h}}`);
+      svg.insertAdjacentHTML("beforeend", `<rect x="${{m.l}}" y="${{m.t}}" width="${{w-m.l-m.r}}" height="${{h-m.t-m.b}}" fill="#fff"/><g stroke="#e8ebf2">${{[0,1,2,3,4].map(i=>`<line x1="${{m.l}}" x2="${{w-m.r}}" y1="${{m.t+i*(h-m.t-m.b)/4}}" y2="${{m.t+i*(h-m.t-m.b)/4}}"/>`).join("")}}</g>`);
+    }}
+    function drawNav(result) {{
+      const svg = els.navChart, w = 900, h = 330, m = {{l:48,r:20,t:12,b:36}}; clear(svg); axes(svg,w,h,m);
+      const points = result.equity, x = (_, i) => m.l + i * (w - m.l - m.r) / Math.max(points.length - 1, 1);
+      const y = scale([...points.map(d=>d.nav), ...points.map(d=>d.bench)], h-m.b, m.t);
+      path(svg, line(points, x, d=>y(d.nav)), "#d8343f", 2.4);
+      path(svg, line(points, x, d=>y(d.bench)), "#9aa1ad", 2, "5 5");
+      svg.insertAdjacentHTML("beforeend", `<text x="${{m.l}}" y="${{h-10}}" font-size="12" fill="#6b7280">${{points[0].date}}</text><text x="${{w-m.r-80}}" y="${{h-10}}" font-size="12" fill="#6b7280">${{points.at(-1).date}}</text>`);
+    }}
+    function drawDrawdown(result) {{
+      const svg = els.drawdownChart, w = 540, h = 280, m = {{l:44,r:16,t:12,b:34}}; clear(svg); axes(svg,w,h,m);
+      const points = result.equity, x = (_, i) => m.l + i * (w - m.l - m.r) / Math.max(points.length - 1, 1);
+      const y = scale([...points.map(d=>d.drawdown * 100), 0], h-m.b, m.t);
+      const area = line(points, x, d=>y(d.drawdown*100)) + ` L ${{w-m.r}},${{y(0)}} L ${{m.l}},${{y(0)}} Z`;
+      svg.insertAdjacentHTML("beforeend", `<path d="${{area}}" fill="#cceee1"/><line x1="${{m.l}}" x2="${{w-m.r}}" y1="${{y(0)}}" y2="${{y(0)}}" stroke="#0c9f6e"/><path d="${{line(points,x,d=>y(d.drawdown*100))}}" fill="none" stroke="#0c9f6e" stroke-width="2"/>`);
+    }}
+    function drawPrice(result) {{
+      const svg = els.priceChart, w = 540, h = 280, m = {{l:44,r:16,t:12,b:34}}; clear(svg); axes(svg,w,h,m);
+      const points = result.equity, x = (_, i) => m.l + i * (w - m.l - m.r) / Math.max(points.length - 1, 1);
+      const y = scale([...points.map(d=>d.close), ...points.map(d=>d.shortMa), ...points.map(d=>d.longMa)], h-m.b, m.t);
+      path(svg, line(points, x, d=>y(d.close)), "#555", 1.4);
+      path(svg, line(points.filter(d=>d.shortMa), (p,i)=>x(p, points.indexOf(p)), d=>y(d.shortMa)), "#f2a65a", 2);
+      path(svg, line(points.filter(d=>d.longMa), (p,i)=>x(p, points.indexOf(p)), d=>y(d.longMa)), "#2f8ec4", 2);
+      result.trades.forEach(t => {{
+        const idx = points.findIndex(d => d.date === t.date);
+        const cx = x(points[idx], idx), cy = y(points[idx].close), color = t.type === "buy" ? "#d8343f" : "#0c9f6e", marker = t.type === "buy" ? "▲" : "▼";
+        svg.insertAdjacentHTML("beforeend", `<text x="${{cx-6}}" y="${{cy+4}}" fill="${{color}}" font-size="18">${{marker}}</text>`);
+      }});
+    }}
+    function drawCompare() {{
+      const svg = els.compareChart, w = 900, h = 330, m = {{l:48,r:20,t:12,b:86}}; clear(svg); axes(svg,w,h,m);
+      const rows = DATA.comparison, xStep = (w-m.l-m.r)/rows.length, y = scale([...rows.map(d=>d.totalReturn*100), ...rows.map(d=>d.excessReturn*100), 0], h-m.b, m.t);
+      rows.forEach((d,i) => {{
+        const x = m.l + i*xStep + xStep*0.18, bw=xStep*0.26;
+        [["totalReturn","#d8343f"],["excessReturn","#0c9f6e"]].forEach((pair,j)=> {{
+          const v = d[pair[0]]*100, y0=y(0), yv=y(v), bh=Math.abs(y0-yv);
+          svg.insertAdjacentHTML("beforeend", `<rect x="${{x+j*(bw+3)}}" y="${{Math.min(y0,yv)}}" width="${{bw}}" height="${{bh}}" fill="${{pair[1]}}"/><text x="${{x-6}}" y="${{h-54}}" font-size="10" fill="#5b6370" transform="rotate(-35 ${{x-6}},${{h-54}})">${{d.stock}} ${{d.short}}/${{d.long}}</text>`);
+        }});
+      }});
+    }}
+
+    function update() {{
+      let shortW = +els.shortRange.value, longW = +els.longRange.value;
+      if (longW <= shortW) {{ longW = shortW + 1; els.longRange.value = longW; }}
+      els.shortValue.textContent = shortW; els.longValue.textContent = longW; els.paramPill.textContent = `SMA(${{shortW}},${{longW}})`;
+      const s = stock();
+      let rows = s.rows.filter(d => d.date >= els.startDate.value && d.date <= els.endDate.value);
+      rows = rows.length > longW + 2 ? rows : s.rows;
+      const result = runBacktest(rows, shortW, longW, +els.capitalInput.value, els.commissionToggle.checked, els.slippageToggle.checked);
+      const mddDates = result.equity.filter(d => d.drawdown === result.maxDrawdown).map(d => d.date)[0] || "-";
+      els.annualCard.textContent = pct(result.annualReturn); els.annualCard.className = "value " + cls(result.annualReturn);
+      els.returnNote.textContent = "累计收益 " + pct(result.totalReturn) + "，超额 " + pct(result.totalReturn - result.benchmarkReturn);
+      els.sharpeCard.textContent = num(result.sharpe, 3); els.sharpeCard.className = "value " + cls(result.sharpe);
+      els.sharpeNote.textContent = result.sharpe > 1 ? "较好" : result.sharpe > 0 ? "中等" : "偏弱";
+      els.mddCard.textContent = pct(result.maxDrawdown); els.mddNote.textContent = mddDates;
+      els.winCard.textContent = pct(result.winRate); els.tradeNote.textContent = result.trades.length + " 笔交易，盈亏比 " + num(result.profitLossRatio, 2);
+      els.sideAnnual.textContent = pct(result.annualReturn); els.sideSharpe.textContent = num(result.sharpe, 3); els.sideMdd.textContent = pct(result.maxDrawdown); els.sideTrades.textContent = result.trades.length; els.sideWin.textContent = pct(result.winRate); els.sidePl.textContent = num(result.profitLossRatio, 2); els.sideExcess.textContent = pct(result.totalReturn - result.benchmarkReturn);
+      els.stockMeta.textContent = s.code + " · CNY · " + rows.length + " 天";
+      drawNav(result); drawDrawdown(result); drawPrice(result); drawCompare();
+    }}
+
+    function init() {{
+      DATA.stocks.forEach(s => els.stockSelect.insertAdjacentHTML("beforeend", `<option value="${{s.code}}">${{s.name}}（${{s.code}}）</option>`));
+      els.stockSelect.value = DATA.defaults.stock;
+      const s = stock();
+      els.startDate.value = s.rows[0].date; els.endDate.value = s.rows.at(-1).date;
+      els.shortRange.value = DATA.defaults.short; els.longRange.value = DATA.defaults.long; els.capitalInput.value = DATA.defaults.initialCapital;
+      ["stockSelect","startDate","endDate","shortRange","longRange","commissionToggle","slippageToggle","capitalInput"].forEach(id => els[id].addEventListener("input", update));
+      els.resetBtn.addEventListener("click", () => {{ els.stockSelect.value = DATA.defaults.stock; const s2 = stock(); els.startDate.value = s2.rows[0].date; els.endDate.value = s2.rows.at(-1).date; els.shortRange.value = DATA.defaults.short; els.longRange.value = DATA.defaults.long; els.capitalInput.value = DATA.defaults.initialCapital; els.commissionToggle.checked = true; els.slippageToggle.checked = true; update(); }});
+      update();
+    }}
+    init();
+  </script>
+</body>
+</html>
+"""
+    DASHBOARD_PATH.write_text(html, encoding="utf-8")
+
+
 def build_readme(metrics_df: pd.DataFrame) -> None:
     main = metrics_df[
         (metrics_df["ts_code"] == MAIN_CODE)
@@ -871,6 +1271,7 @@ TASK3/
 ├── README.md
 ├── task3_ma_cross_strategy.py
 ├── task3_ma_cross_strategy.ipynb
+├── ma_cross_dashboard.html
 ├── jane+TASK3.pdf
 ├── data/
 │   └── *_daily_data.csv
@@ -887,6 +1288,8 @@ TASK3/
 ```bash
 python3 task3_ma_cross_strategy.py
 ```
+
+生成后可直接用浏览器打开 `ma_cross_dashboard.html`，查看双均线策略回测看板。看板包含标的选择、时间窗口、短长均线参数、交易成本开关、关键指标卡、策略净值曲线、回撤曲线、价格均线买卖点图，以及多股票多参数对比图。
 
 脚本默认复用本地 CSV，不需要写入真实 Tushare token。若未来需要重新获取数据，请只通过本地环境变量传入：
 
@@ -918,10 +1321,12 @@ def build_outputs() -> None:
     data = load_all_data()
     metrics_df, equity_map, trade_map = make_all_backtests(data)
     make_figures(equity_map, trade_map, metrics_df)
+    build_dashboard(data, metrics_df)
     build_pdf(metrics_df, equity_map, trade_map, data)
     build_notebook()
     build_readme(metrics_df)
     print(f"PDF: {PDF_PATH.name}")
+    print(f"Dashboard: {DASHBOARD_PATH.name}")
     print(f"Summary: {RESULT_DIR / 'task3_performance_summary.csv'}")
     print(metrics_df[["stock_name", "ts_code", "short_window", "long_window", "total_return", "sharpe", "max_drawdown", "excess_return"]].to_string(index=False))
 
