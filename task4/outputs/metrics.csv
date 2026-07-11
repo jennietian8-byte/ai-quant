@@ -1,0 +1,2 @@
+﻿stock,ts_code,final_asset,cumulative_return,annual_return,max_drawdown,sharpe_ratio,annual_volatility,trade_count,completed_round_trips,win_rate,benchmark_return,excess_return,sell_count,entry_window,exit_window,atr_window
+宁德时代,300750.SZ,94515.53999999998,-0.05484460000000024,-0.05681707079731957,-0.22729718659789522,-0.2646190711678531,0.1677892034375707,16,5,0.2,0.447122891199208,-0.5019674911992082,5,20,10,14

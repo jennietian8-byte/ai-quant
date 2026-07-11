@@ -156,6 +156,10 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+*.key
+*token*
+private*
+.DS_Store
 
 # Spyder project settings
 .spyderproject
