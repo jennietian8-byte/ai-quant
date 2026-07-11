@@ -711,11 +711,27 @@ stop_price = entry_price - 2 * atr_at_entry
     add_image(figs["heatmap"], "图7 参数热力图。颜色越偏绿色，说明该入场/退出周期组合的夏普比率越高；颜色偏红则表示风险调整后收益较差。")
     p("除静态图表外，本目录还提供 Streamlit Playground。运行后可在左侧修改标的、回测窗口、入场周期、退出周期、ATR 周期和最大单位数，右侧实时更新绩效指标、净值曲线、信号图和交易记录。")
 
-    section("九、适用场景、局限性与心得")
+    section("九、课堂演示页面复刻实现")
+    p("截图中的多指标柱状图，本报告通过 build_multi_stock_experiment 函数实现：先对贵州茅台、宁德时代、招商银行分别调用同一个 run_turtle_backtest 回测函数，再把年化收益率、夏普比率、最大回撤、平均持有天数整理为 multi_stock_metrics.csv，最后用 matplotlib 的 2×2 子图绘制成图6。")
+    p("截图中的参数热力图，本报告通过 build_parameter_sensitivity 函数实现：固定 ATR 周期为 20，循环扫描入场突破周期 N 与退出通道周期 M，将每组参数的 Sharpe Ratio 写入 parameter_sensitivity.csv，再用 pivot 表转换成矩阵，用 RdYlGn 色阶绘制成图7。绿色区域表示风险调整后收益较好，红色区域表示该参数组合表现较弱。")
+    p("截图中的 Playground 页面，本目录用 dashboard/app.py 实现。页面左侧是 Streamlit 控件，包括标的、入场周期、退出周期、ATR 周期、单单位风险和最大单位数；右侧复用 run_turtle_backtest 即时计算 KPI、净值曲线、交易信号和交易记录。运行命令为：pip install -r requirements-dashboard.txt，然后执行 streamlit run dashboard/app.py。")
+    snippet2 = """
+multi_stock_metrics = build_multi_stock_experiment(all_data)
+sensitivity = build_parameter_sensitivity(main_df)
+figs = make_figures(main_df, work, equity, trades,
+                    param_metrics, multi_stock_metrics, sensitivity)
+
+# Playground 核心思想：
+# 左侧参数控件 -> 调用 run_turtle_backtest -> 右侧刷新 KPI、净值曲线和交易表
+"""
+    story.append(Paragraph(snippet2.replace("\n", "<br/>"), code))
+    story.append(Spacer(1, 0.12 * cm))
+
+    section("十、适用场景、局限性与心得")
     p("海龟策略更适合趋势明确、波动延续性较强的市场。在单边上涨或下跌阶段，它可以通过突破入场和金字塔加仓扩大盈利；在横盘震荡中，则容易被假突破反复消耗。")
     p("本次实验最大的体会是：海龟法则并不是单纯的买卖信号，而是由入场、仓位、止损、加仓和风险上限共同组成的完整系统。只有把风险控制写进代码，趋势跟随策略才具备可执行性。")
 
-    section("十、总结")
+    section("十一、总结")
     p("本作业完成了海龟策略的理论说明、指标计算、逐日回测、交易记录、绩效评价、参数实验和图表报告。实现过程中严格使用本地公开 CSV 数据，不保存真实 token、私密 MCP URL 或本机绝对路径。")
 
     doc.build(story)
