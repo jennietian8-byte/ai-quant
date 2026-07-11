@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>每日数据与部署</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">✓</span>Actions</a>
+    <nav class="nav">
+      <a href="index.html">实验首页</a>
+      <a href="indicator.html">指标实验室</a>
+      <a href="turtle.html">海龟法则</a>
+      <a href="ma-cross.html">均线交叉</a>
+      <a class="active" href="workflow.html">自动更新</a>
+    </nav>
+  </header>
+  <main class="light-page">
+    <section class="light-panel">
+      <h1>Daily Data + Deploy</h1>
+      <p>本页复刻截图里的 GitHub Actions 工作流说明：每天定时构建静态站点，也可以在 GitHub Actions 页面手动触发。当前仓库提供 workflow 示例文件，启用时可复制到 .github/workflows/；实现不写入任何 token，数据来自仓库内公开 CSV。</p>
+      <div class="workflow-list">
+        <div class="workflow-run"><span class="check">✓</span><div><strong>pages build and deployment</strong><div class="small">部署 task4/site 到 GitHub Pages</div></div><span class="small">gh-pages</span></div>
+        <div class="workflow-run"><span class="check">✓</span><div><strong>Daily Data + Deploy</strong><div class="small">定时刷新公开样例数据与页面</div></div><span class="small">main</span></div>
+        <div class="workflow-run"><span class="check">✓</span><div><strong>Manual workflow dispatch</strong><div class="small">课程演示时可手动点击 Run workflow</div></div><span class="small">on demand</span></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

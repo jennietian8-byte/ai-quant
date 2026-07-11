@@ -715,6 +715,8 @@ stop_price = entry_price - 2 * atr_at_entry
     p("截图中的多指标柱状图，本报告通过 build_multi_stock_experiment 函数实现：先对贵州茅台、宁德时代、招商银行分别调用同一个 run_turtle_backtest 回测函数，再把年化收益率、夏普比率、最大回撤、平均持有天数整理为 multi_stock_metrics.csv，最后用 matplotlib 的 2×2 子图绘制成图6。")
     p("截图中的参数热力图，本报告通过 build_parameter_sensitivity 函数实现：固定 ATR 周期为 20，循环扫描入场突破周期 N 与退出通道周期 M，将每组参数的 Sharpe Ratio 写入 parameter_sensitivity.csv，再用 pivot 表转换成矩阵，用 RdYlGn 色阶绘制成图7。绿色区域表示风险调整后收益较好，红色区域表示该参数组合表现较弱。")
     p("截图中的 Playground 页面，本目录用 dashboard/app.py 实现。页面左侧是 Streamlit 控件，包括标的、入场周期、退出周期、ATR 周期、单单位风险和最大单位数；右侧复用 run_turtle_backtest 即时计算 KPI、净值曲线、交易信号和交易记录。运行命令为：pip install -r requirements-dashboard.txt，然后执行 streamlit run dashboard/app.py。")
+    p("根据后续截图，本作业进一步实现了 task4/site 静态门户站。index.html 复刻 AI Quant Lab 首页，提供指标实验室、海龟法则回测、均线交叉策略、参数敏感性和报告入口；turtle.html 复刻深色 Playground，左侧为标的、时段、参数预设、入场周期、退出周期、ATR、加仓步长、止损倍数和最大单位数，右侧为 6 个指标卡、三线净值曲线、通道信号图、ATR 子图、参数热力图和可排序交易表。")
+    p("静态站采用课堂截图中的核心设计决策：不使用前端框架，使用纯 HTML/CSS/JavaScript；data/*.csv 作为共享数据层；turtle_engine.js 作为统一策略计算引擎，所有页面直接引用；task4/site/github-actions/task4-daily-data-deploy.yml.example 提供 Daily Data + Deploy 和 GitHub Pages 发布流程示例，如需启用可复制到 .github/workflows/。")
     snippet2 = """
 multi_stock_metrics = build_multi_stock_experiment(all_data)
 sensitivity = build_parameter_sensitivity(main_df)
@@ -723,6 +725,9 @@ figs = make_figures(main_df, work, equity, trades,
 
 # Playground 核心思想：
 # 左侧参数控件 -> 调用 run_turtle_backtest -> 右侧刷新 KPI、净值曲线和交易表
+# 静态门户核心思想：
+# index.html 作为橱窗入口，turtle.html 作为深度入口，
+# turtle_engine.js 读取 CSV 并在浏览器内完成全部回测计算。
 """
     story.append(Paragraph(snippet2.replace("\n", "<br/>"), code))
     story.append(Spacer(1, 0.12 * cm))
@@ -858,6 +863,14 @@ export TUSHARE_TOKEN="YOUR_TUSHARE_TOKEN"
 python3 task4_turtle_strategy.py
 ```
 
+预览静态门户站：
+
+```bash
+python3 -m http.server 8000
+```
+
+然后打开 `http://localhost:8000/site/index.html`。
+
 启动互动 Playground：
 
 ```bash
@@ -883,6 +896,8 @@ streamlit run dashboard/app.py
 - `outputs/multi_stock_metrics.csv`：多标的回测指标
 - `outputs/parameter_sensitivity.csv`：参数热力图扫描结果
 - `outputs/figures/`：可视化图表
+- `site/`：纯静态 AI Quant Lab 门户站，可用于 GitHub Pages
+- `site/github-actions/task4-daily-data-deploy.yml.example`：每日构建与 Pages 部署工作流示例
 - `dashboard/app.py`：互动式海龟策略 Playground
 - `requirements-dashboard.txt`：Playground 依赖
 - `task4_turtle_strategy.ipynb`：Notebook 入口

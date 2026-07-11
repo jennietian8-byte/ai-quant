@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Quant Lab</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">↗</span>AI Quant Lab</a>
+    <nav class="nav">
+      <a class="active" href="index.html">实验首页</a>
+      <a href="indicator.html">指标实验室</a>
+      <a href="turtle.html">海龟法则</a>
+      <a href="ma-cross.html">均线交叉</a>
+      <a href="workflow.html">自动更新</a>
+    </nav>
+  </header>
+
+  <div class="status-row">
+    <span><strong>数据每日更新</strong></span>
+    <span>3 只 A 股</span>
+    <span>纯前端计算</span>
+    <span>GitHub Pages</span>
+  </div>
+
+  <main class="portal">
+    <section class="card-grid">
+      <a class="lab-card" href="indicator.html">
+        <div class="lab-icon">📊</div>
+        <h2>指标实验室</h2>
+        <p>交互式技术指标分析工具，拖拽参数即可调整 RSI、MACD、布林带、ATR 四个经典指标。</p>
+        <div class="tags"><span>RSI</span><span>MACD</span><span>布林带</span><span>ATR</span></div>
+        <span class="cta">进入实验 →</span>
+      </a>
+
+      <a class="lab-card" href="turtle.html">
+        <div class="lab-icon">🐢</div>
+        <h2>海龟法则回测</h2>
+        <p>完整实现经典海龟交易系统：唐奇安通道突破、ATR 止损、风险预算、金字塔加仓。</p>
+        <div class="tags"><span>唐奇安通道</span><span>ATR</span><span>风险预算</span></div>
+        <span class="cta">进入回测 →</span>
+      </a>
+
+      <a class="lab-card" href="ma-cross.html">
+        <div class="lab-icon">📈</div>
+        <h2>均线交叉策略</h2>
+        <p>经典双均线金叉死叉策略，自由调节快慢线周期，查看历史回测表现。</p>
+        <div class="tags"><span>MA Cross</span><span>金叉死叉</span><span>回测</span></div>
+        <span class="cta">进入回测 →</span>
+      </a>
+
+      <a class="lab-card" href="workflow.html">
+        <div class="lab-icon">🤖</div>
+        <h2>每日自动更新</h2>
+        <p>GitHub Actions 定时构建并发布静态页面，保留手动触发入口，方便课程演示。</p>
+        <div class="tags"><span>Actions</span><span>Pages</span><span>Deploy</span></div>
+        <span class="cta">查看流程 →</span>
+      </a>
+
+      <a class="lab-card" href="turtle.html#heatmap">
+        <div class="lab-icon">🎯</div>
+        <h2>参数敏感性</h2>
+        <p>扫描入场周期、离场周期和 ATR 周期，观察 Sharpe Ratio 与最大回撤变化。</p>
+        <div class="tags"><span>热力图</span><span>参数扫描</span><span>Sharpe</span></div>
+        <span class="cta">查看热力图 →</span>
+      </a>
+
+      <a class="lab-card" href="assets/jane+TASK4.pdf">
+        <div class="lab-icon">🚀</div>
+        <h2>TASK4 报告</h2>
+        <p>PDF 报告已整合策略理论、Python 实现、图表、参数实验和页面复刻说明。</p>
+        <div class="tags"><span>PDF</span><span>图表</span><span>提交材料</span></div>
+        <span class="cta">打开报告 →</span>
+      </a>
+    </section>
+  </main>
+</body>
+</html>

@@ -18,6 +18,14 @@ export TUSHARE_TOKEN="YOUR_TUSHARE_TOKEN"
 python3 task4_turtle_strategy.py
 ```
 
+预览静态门户站：
+
+```bash
+python3 -m http.server 8000
+```
+
+然后打开 `http://localhost:8000/site/index.html`。
+
 启动互动 Playground：
 
 ```bash
@@ -43,6 +51,8 @@ streamlit run dashboard/app.py
 - `outputs/multi_stock_metrics.csv`：多标的回测指标
 - `outputs/parameter_sensitivity.csv`：参数热力图扫描结果
 - `outputs/figures/`：可视化图表
+- `site/`：纯静态 AI Quant Lab 门户站，可用于 GitHub Pages
+- `site/github-actions/task4-daily-data-deploy.yml.example`：每日构建与 Pages 部署工作流示例
 - `dashboard/app.py`：互动式海龟策略 Playground
 - `requirements-dashboard.txt`：Playground 依赖
 - `task4_turtle_strategy.ipynb`：Notebook 入口

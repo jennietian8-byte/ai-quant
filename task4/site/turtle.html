@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>海龟法则 Playground</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">🐢</span>海龟法则 <span class="small">Playground</span></a>
+    <nav class="nav">
+      <a href="index.html">实验首页</a>
+      <a href="indicator.html">指标实验室</a>
+      <a class="active" href="turtle.html">海龟法则</a>
+      <a href="ma-cross.html">均线交叉</a>
+      <a href="workflow.html">自动更新</a>
+    </nav>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar">
+      <h1>海龟法则</h1>
+      <div class="control">
+        <label for="stock">标的</label>
+        <select id="stock">
+          <option value="300750.SZ">宁德时代 (300750.SZ)</option>
+          <option value="600519.SH">贵州茅台 (600519.SH)</option>
+          <option value="600036.SH">招商银行 (600036.SH)</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <label>时段</label>
+        <div class="segmented" id="periodButtons">
+          <button data-period="all" class="active">全部</button>
+          <button data-period="252">1年</button>
+          <button data-period="126">6月</button>
+          <button data-period="63">3月</button>
+        </div>
+      </div>
+
+      <div class="control">
+        <label>策略参数</label>
+        <div class="segmented" id="presetButtons">
+          <button data-preset="fast" class="active">短线</button>
+          <button data-preset="classic">经典</button>
+          <button data-preset="steady">稳健</button>
+        </div>
+      </div>
+
+      <div class="control">
+        <label>入场通道周期 N <span id="entryValue">20</span></label>
+        <input id="entryWindow" type="range" min="10" max="60" step="5" value="20">
+      </div>
+      <div class="control">
+        <label>退出通道周期 M <span id="exitValue">10</span></label>
+        <input id="exitWindow" type="range" min="5" max="30" step="5" value="10">
+      </div>
+      <div class="control">
+        <label>ATR 周期 <span id="atrValue">20</span></label>
+        <input id="atrWindow" type="range" min="10" max="30" step="2" value="20">
+      </div>
+      <div class="control">
+        <label>加仓步长 xATR <span id="addValue">0.5</span></label>
+        <input id="addAtr" type="range" min="0.3" max="1.5" step="0.1" value="0.5">
+      </div>
+      <div class="control">
+        <label>止损倍数 xATR <span id="stopValue">2.0</span></label>
+        <input id="stopAtr" type="range" min="1" max="4" step="0.5" value="2">
+      </div>
+      <div class="control">
+        <label>最大单位数 <span id="unitValue">4</span></label>
+        <input id="maxUnits" type="range" min="1" max="4" step="1" value="4">
+      </div>
+      <button class="ghost-btn primary" id="rerun">重新回测</button>
+    </aside>
+
+    <main class="main">
+      <section class="kpis" id="kpis"></section>
+      <section class="panel">
+        <h2>净值曲线</h2>
+        <canvas id="equityChart" class="chart"></canvas>
+      </section>
+      <section class="signal-grid">
+        <div class="panel">
+          <h2>交易信号（唐奇安通道 + 买卖点）</h2>
+          <canvas id="signalChart" class="chart"></canvas>
+        </div>
+        <div class="panel">
+          <h2>ATR 子图</h2>
+          <canvas id="atrChart" class="chart"></canvas>
+        </div>
+      </section>
+      <section class="panel" id="heatmap">
+        <h2>参数扫描（Sharpe Ratio）</h2>
+        <canvas id="heatmapChart" class="chart"></canvas>
+      </section>
+      <section class="panel">
+        <h2>可排序交易表</h2>
+        <table>
+          <thead><tr><th>日期</th><th>动作</th><th>原因</th><th>价格</th><th>股数</th><th>单位</th><th>ATR</th></tr></thead>
+          <tbody id="tradeRows"></tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <script src="turtle_engine.js"></script>
+  <script>
+    const controls = {
+      stock: document.querySelector("#stock"),
+      entryWindow: document.querySelector("#entryWindow"),
+      exitWindow: document.querySelector("#exitWindow"),
+      atrWindow: document.querySelector("#atrWindow"),
+      addAtr: document.querySelector("#addAtr"),
+      stopAtr: document.querySelector("#stopAtr"),
+      maxUnits: document.querySelector("#maxUnits")
+    };
+    let period = "all";
+    const presets = {
+      fast: { entryWindow: 20, exitWindow: 10, atrWindow: 20 },
+      classic: { entryWindow: 20, exitWindow: 20, atrWindow: 20 },
+      steady: { entryWindow: 55, exitWindow: 20, atrWindow: 20 }
+    };
+
+    function params() {
+      return {
+        entryWindow: Number(controls.entryWindow.value),
+        exitWindow: Number(controls.exitWindow.value),
+        atrWindow: Number(controls.atrWindow.value),
+        addAtr: Number(controls.addAtr.value),
+        stopAtr: Number(controls.stopAtr.value),
+        maxUnits: Number(controls.maxUnits.value),
+        initialCash: 100000,
+        riskPerUnit: 0.01
+      };
+    }
+
+    function syncLabels() {
+      document.querySelector("#entryValue").textContent = controls.entryWindow.value;
+      document.querySelector("#exitValue").textContent = controls.exitWindow.value;
+      document.querySelector("#atrValue").textContent = controls.atrWindow.value;
+      document.querySelector("#addValue").textContent = Number(controls.addAtr.value).toFixed(1);
+      document.querySelector("#stopValue").textContent = Number(controls.stopAtr.value).toFixed(1);
+      document.querySelector("#unitValue").textContent = controls.maxUnits.value;
+    }
+
+    function renderKpis(metrics) {
+      const items = [
+        ["年化收益", fmtPct(metrics.annualReturn), metrics.annualReturn >= 0 ? "good" : "bad"],
+        ["夏普比率", metrics.sharpe.toFixed(2), metrics.sharpe >= 0 ? "good" : "bad"],
+        ["最大回撤", fmtPct(metrics.maxDrawdown), "good"],
+        ["胜率", fmtPct(metrics.winRate), "good"],
+        ["交易笔数", `${metrics.tradeCount} 笔`, ""],
+        ["止损次数", `${metrics.sellCount} 次`, ""]
+      ];
+      document.querySelector("#kpis").innerHTML = items.map(([label, value, cls]) =>
+        `<div class="kpi"><span>${label}</span><strong class="${cls}">${value}</strong></div>`
+      ).join("");
+    }
+
+    function drawSignals(canvas, result) {
+      const ctx = canvas.getContext("2d");
+      drawLineChart(canvas, [
+        { values: result.data.map((row) => row.close), color: "#d1d5db", width: 1.6 },
+        { values: result.data.map((row) => row.entryHigh), color: "#ff477e", width: 1.4 },
+        { values: result.data.map((row) => row.exitLow), color: "#22c55e", width: 1.4 }
+      ]);
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      const ratio = window.devicePixelRatio || 1;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      const prices = result.data.map((row) => row.close);
+      const min = Math.min(...prices);
+      const max = Math.max(...prices);
+      const pad = { left: 54, right: 22, top: 28, bottom: 42 };
+      const x = (i) => pad.left + (i / Math.max(result.data.length - 1, 1)) * (width - pad.left - pad.right);
+      const y = (v) => height - pad.bottom - ((v - min) / (max - min || 1)) * (height - pad.top - pad.bottom);
+      result.trades.forEach((trade) => {
+        const i = result.data.findIndex((row) => row.date === trade.date);
+        if (i < 0) return;
+        ctx.fillStyle = trade.action === "SELL" ? "#22c55e" : "#fb477e";
+        ctx.beginPath();
+        ctx.arc(x(i), y(trade.price), 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function drawHeatmap(canvas, rows) {
+      const ctx = canvas.getContext("2d");
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = width * ratio;
+      canvas.height = height * ratio;
+      ctx.scale(ratio, ratio);
+      ctx.clearRect(0, 0, width, height);
+      const entries = [10, 20, 30, 40, 55];
+      const exits = [5, 10, 20, 30];
+      const pad = { left: 70, right: 28, top: 30, bottom: 42 };
+      const cellW = (width - pad.left - pad.right) / exits.length;
+      const cellH = (height - pad.top - pad.bottom) / entries.length;
+      const values = rows.map((row) => row.metric);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      function color(v) {
+        const t = (v - min) / (max - min || 1);
+        const r = Math.round(225 - 210 * t);
+        const g = Math.round(70 + 110 * t);
+        const b = Math.round(90 - 40 * t);
+        return `rgb(${r},${g},${b})`;
+      }
+      entries.forEach((entry, i) => {
+        exits.forEach((exit, j) => {
+          const row = rows.find((r) => r.entry === entry && r.exit === exit);
+          const x = pad.left + j * cellW;
+          const y = pad.top + i * cellH;
+          ctx.fillStyle = color(row.metric);
+          ctx.fillRect(x, y, cellW - 2, cellH - 2);
+          ctx.fillStyle = "#172033";
+          ctx.font = "13px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(row.metric.toFixed(3), x + cellW / 2, y + cellH / 2 + 5);
+        });
+        ctx.fillStyle = "#cbd5e1";
+        ctx.textAlign = "right";
+        ctx.fillText(entry, pad.left - 12, pad.top + i * cellH + cellH / 2 + 5);
+      });
+      exits.forEach((exit, j) => {
+        ctx.fillStyle = "#cbd5e1";
+        ctx.textAlign = "center";
+        ctx.fillText(exit, pad.left + j * cellW + cellW / 2, height - 16);
+      });
+    }
+
+    async function render() {
+      syncLabels();
+      const loaded = await loadStock(controls.stock.value);
+      const raw = period === "all" ? loaded.data : loaded.data.slice(-Number(period));
+      const result = runTurtleBacktest(raw, params());
+      renderKpis(result.metrics);
+      drawLineChart(document.querySelector("#equityChart"), [
+        { values: result.equity.map((row) => row.totalAsset / 100000), color: "#fb477e", width: 2.4 },
+        { values: raw.map((row) => row.close / raw[0].close), color: "#9ca3af", width: 1.4, dash: [5, 5] }
+      ], { decimals: 2 });
+      drawSignals(document.querySelector("#signalChart"), result);
+      drawLineChart(document.querySelector("#atrChart"), [{ values: result.data.map((row) => row.atr), color: "#60a5fa", width: 2 }]);
+      document.querySelector("#tradeRows").innerHTML = result.trades.slice().reverse().map((trade) =>
+        `<tr><td>${trade.date}</td><td>${trade.action}</td><td>${trade.reason}</td><td>${trade.price.toFixed(2)}</td><td>${trade.shares}</td><td>${trade.units}</td><td>${trade.atr ? trade.atr.toFixed(2) : ""}</td></tr>`
+      ).join("");
+
+      const heatRows = [];
+      [10, 20, 30, 40, 55].forEach((entry) => {
+        [5, 10, 20, 30].forEach((exit) => {
+          const m = runTurtleBacktest(raw, { ...params(), entryWindow: entry, exitWindow: exit, atrWindow: 20 }).metrics;
+          heatRows.push({ entry, exit, metric: m.sharpe });
+        });
+      });
+      drawHeatmap(document.querySelector("#heatmapChart"), heatRows);
+    }
+
+    document.querySelectorAll("input, select").forEach((el) => el.addEventListener("input", render));
+    document.querySelector("#rerun").addEventListener("click", render);
+    document.querySelector("#periodButtons").addEventListener("click", (event) => {
+      if (!event.target.dataset.period) return;
+      period = event.target.dataset.period;
+      document.querySelectorAll("#periodButtons button").forEach((btn) => btn.classList.toggle("active", btn === event.target));
+      render();
+    });
+    document.querySelector("#presetButtons").addEventListener("click", (event) => {
+      const preset = presets[event.target.dataset.preset];
+      if (!preset) return;
+      Object.entries(preset).forEach(([key, value]) => controls[key].value = value);
+      document.querySelectorAll("#presetButtons button").forEach((btn) => btn.classList.toggle("active", btn === event.target));
+      render();
+    });
+    window.addEventListener("resize", render);
+    render();
+  </script>
+</body>
+</html>

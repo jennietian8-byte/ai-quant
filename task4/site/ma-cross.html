@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>均线交叉策略</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">📈</span>均线交叉策略</a>
+    <nav class="nav">
+      <a href="index.html">实验首页</a>
+      <a href="indicator.html">指标实验室</a>
+      <a href="turtle.html">海龟法则</a>
+      <a class="active" href="ma-cross.html">均线交叉</a>
+      <a href="workflow.html">自动更新</a>
+    </nav>
+  </header>
+  <main class="light-page">
+    <section class="light-panel">
+      <h1>双均线金叉 / 死叉演示</h1>
+      <p class="small">该页保留 TASK3 的均线交叉主题，作为门户中的策略补充页。</p>
+      <div class="signal-grid">
+        <div class="control">
+          <label>标的</label>
+          <select id="stock">
+            <option value="300750.SZ">宁德时代</option>
+            <option value="600519.SH">贵州茅台</option>
+            <option value="600036.SH">招商银行</option>
+          </select>
+        </div>
+        <div class="control">
+          <label>快线 / 慢线</label>
+          <div class="segmented">
+            <button data-pair="5,15" class="active">5/15</button>
+            <button data-pair="5,20">5/20</button>
+            <button data-pair="10,30">10/30</button>
+            <button data-pair="11,35">11/35</button>
+          </div>
+        </div>
+      </div>
+      <canvas id="maChart" class="chart" style="height:520px;background:#fff"></canvas>
+    </section>
+  </main>
+  <script src="turtle_engine.js"></script>
+  <script>
+    let pair = [5, 15];
+    function ma(values, n) {
+      return values.map((_, i) => {
+        if (i + 1 < n) return null;
+        return values.slice(i + 1 - n, i + 1).reduce((a, b) => a + b, 0) / n;
+      });
+    }
+    async function render() {
+      const { data } = await loadStock(document.querySelector("#stock").value);
+      const close = data.map((row) => row.close);
+      drawLineChart(document.querySelector("#maChart"), [
+        { values: close, color: "#64748b", width: 1.5 },
+        { values: ma(close, pair[0]), color: "#2563eb", width: 2 },
+        { values: ma(close, pair[1]), color: "#e11d48", width: 2 }
+      ]);
+    }
+    document.querySelector("#stock").addEventListener("change", render);
+    document.querySelector(".segmented").addEventListener("click", (event) => {
+      if (!event.target.dataset.pair) return;
+      pair = event.target.dataset.pair.split(",").map(Number);
+      document.querySelectorAll(".segmented button").forEach((btn) => btn.classList.toggle("active", btn === event.target));
+      render();
+    });
+    render();
+  </script>
+</body>
+</html>

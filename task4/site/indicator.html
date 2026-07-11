@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>指标实验室</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">📊</span>指标实验室</a>
+    <nav class="nav">
+      <a href="index.html">实验首页</a>
+      <a class="active" href="indicator.html">指标实验室</a>
+      <a href="turtle.html">海龟法则</a>
+      <a href="ma-cross.html">均线交叉</a>
+      <a href="workflow.html">自动更新</a>
+    </nav>
+  </header>
+  <main class="light-page">
+    <section class="light-panel">
+      <h1>技术指标快速实验</h1>
+      <p class="small">该页面复用同一份 OHLCV 数据，展示收盘价、ATR 与近期成交量，用于承接 TASK2 的指标分析。</p>
+      <div class="control" style="max-width:320px">
+        <label>标的</label>
+        <select id="stock">
+          <option value="300750.SZ">宁德时代</option>
+          <option value="600519.SH">贵州茅台</option>
+          <option value="600036.SH">招商银行</option>
+        </select>
+      </div>
+      <div class="signal-grid">
+        <div>
+          <h2>收盘价</h2>
+          <canvas id="priceChart" class="chart" style="background:#fff"></canvas>
+        </div>
+        <div>
+          <h2>ATR 波动</h2>
+          <canvas id="atrChart" class="chart" style="background:#fff"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="turtle_engine.js"></script>
+  <script>
+    async function render() {
+      const { data } = await loadStock(document.querySelector("#stock").value);
+      const enriched = addIndicators(data, { entryWindow: 20, exitWindow: 10, atrWindow: 14 });
+      drawLineChart(document.querySelector("#priceChart"), [{ values: data.map((row) => row.close), color: "#2563eb", width: 2 }]);
+      drawLineChart(document.querySelector("#atrChart"), [{ values: enriched.map((row) => row.atr), color: "#e11d48", width: 2 }]);
+    }
+    document.querySelector("#stock").addEventListener("change", render);
+    render();
+  </script>
+</body>
+</html>
